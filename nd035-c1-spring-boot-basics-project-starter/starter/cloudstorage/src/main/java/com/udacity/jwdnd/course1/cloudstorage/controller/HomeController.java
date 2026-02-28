@@ -29,7 +29,7 @@ public class HomeController {
     public String home(Model model, Authentication authentication) {
         int userId = userService.getUser(authentication.getName()).getUserId();
         model.addAttribute("files", fileService.getAllFiles(userId));
-        model.addAttribute("notes", noteService.getAllNotes());
+        model.addAttribute("notes", noteService.getNotesByUserId(userId));
         return "home";
     }
 }
