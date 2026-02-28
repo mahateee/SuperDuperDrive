@@ -30,19 +30,25 @@ public class CredentialController {
 
         int userId = userService.getUser(authentication.getName()).getUserId();
 
-        if (credentialId != null) {
-            // edit existing
-            credentialService.updateCredential(credentialId, url, username, password);
-        } else {
-            // add new
-            credentialService.createCredential(url, username, password, userId);
+        try {
+            if (credentialId != null) {
+                credentialService.updateCredential(credentialId, url, username, password);
+            } else {
+                credentialService.createCredential(url, username, password, userId);
+            }
+            return "redirect:/result?success";
+        } catch (Exception e) {
+            return "redirect:/result?error";
         }
-        return "redirect:/home";
     }
 
     @GetMapping("/delete/{credentialId}")
     public String deleteCredential(@PathVariable Integer credentialId) {
-        credentialService.deleteCredential(credentialId);
-        return "redirect:/home";
+        try {
+            credentialService.deleteCredential(credentialId);
+            return "redirect:/result?success";
+        } catch (Exception e) {
+            return "redirect:/result?error";
+        }
     }
 }

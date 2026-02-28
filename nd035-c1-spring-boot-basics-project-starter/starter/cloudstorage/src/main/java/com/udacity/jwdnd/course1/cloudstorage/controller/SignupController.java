@@ -35,13 +35,10 @@ public class SignupController {
         }
 
         int result = userService.createUser(user);
-
         if (result > 0) {
-            model.addAttribute("success", "Account created! Please login.");
-            return "signup";
-        } else {
-            model.addAttribute("error", "Signup failed, please try again.");
-            return "signup";
+            return "redirect:/login?signup";
         }
+        model.addAttribute("error", "Signup failed!");
+        return "signup";
     }
 }

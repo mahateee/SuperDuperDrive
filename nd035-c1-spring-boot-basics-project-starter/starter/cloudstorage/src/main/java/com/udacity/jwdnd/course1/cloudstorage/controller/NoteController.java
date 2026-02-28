@@ -28,18 +28,25 @@ public class NoteController {
             Authentication authentication) {
 
         int userId = userService.getUser(authentication.getName()).getUserId();
-
-        if (noteId != null) {
-            noteService.updateNote(noteId, noteTitle, noteDescription,userId);
-        } else {
-            noteService.createNote(userId, noteTitle, noteDescription);
+        try {
+            if (noteId != null) {
+                noteService.updateNote(noteId, noteTitle, noteDescription, userId);
+            } else {
+                noteService.createNote(userId, noteTitle, noteDescription);
+            }
+            return "redirect:/result?success";
+        } catch (Exception e) {
+            return "redirect:/result?error";
         }
-        return "redirect:/home";
     }
 
     @GetMapping("/delete/{id}")
     public String deleteNote(@PathVariable Integer id) {
-        noteService.deleteNote(id);
-        return "redirect:/home";
+        try {
+            noteService.deleteNote(id);
+            return "redirect:/result?success";
+        } catch (Exception e) {
+            return "redirect:/result?error";
+        }
     }
 }

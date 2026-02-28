@@ -30,15 +30,20 @@ public class FileController {
         try {
             int userId = userService.getUser(authentication.getName()).getUserId();
             fileService.addFile(fileUpload, userId);
-            return "redirect:/home?success=File uploaded!";
+            return "redirect:/result?success";
         } catch (Exception e) {
-            return "redirect:/home?error=Upload failed!";
+            return "redirect:/result?error";
         }
+
     }
     // Delete file
     @GetMapping("/delete/{fileId}")
     public String deleteFile(@PathVariable Integer fileId) {
-        fileService.deleteFile(fileId);
-        return "redirect:/home";
+        try {
+            fileService.deleteFile(fileId);
+            return "redirect:/result?success";
+        } catch (Exception e) {
+            return "redirect:/result?error";
+        }
     }
 }
