@@ -52,7 +52,8 @@
                                 <tr th:each="file : ${files}">
                                     <td>
                                         <a target="_blank" class="btn btn-success">View</a>
-                                        <a  class="btn btn-danger" th:action="@{/file/delete/{id}(id=${file.fileId})}"  method="GET">Delete</a>
+                                        <a  class="btn btn-danger"
+                                            th:href="@{/file/delete/{id}(id=${file.fileId})}" >Delete</a>
                                     </td>
                                     <th scope="row" th:text="${file.fileName}"></th>
                                 </tr>
@@ -86,7 +87,7 @@
                                                 onclick="showNoteModal(this)">
                                             Edit
                                         </button>
-                                        <a th:action="@{/note/delete/{id}(id=${note.noteId})}"  method="GET"
+                                        <a th:href="@{/note/delete/{id}(id=${note.noteId})}"
                                            class="btn btn-danger">Delete</a>
                                     </td>
                                     <th scope="row" th:text="${note.noteTitle}"></th>
