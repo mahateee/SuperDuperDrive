@@ -147,14 +147,21 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                <tr>
+                                <tr th:each="credential : ${credentials}">
                                     <td>
-                                        <button type="button" class="btn btn-success">Edit</button>
-                                        <a class="btn btn-danger">Delete</a>
+                                        <button type="button" class="btn btn-success"
+                                                th:data-id="${credential.credentialId}"
+                                                th:data-url="${credential.url}"
+                                                th:data-username="${credential.username}"
+                                                th:data-password="${credential.password}"
+                                                onclick="showCredentialModal(this)">
+                                            Edit
+                                        </button>
+                                        <a th:href="@{/credential/delete/{id}(id=${credential.credentialId})}" class="btn btn-danger">Delete</a>
                                     </td>
-                                    <th scope="row">Example Credential URL</th>
-                                    <td>Example Credential Username</td>
-                                    <td>Example Credential Password</td>
+                                    <th scope="row" th:text="${credential.url}"></th>
+                                    <td th:text="${credential.username}"></td>
+                                    <td th:text="${credential.password}"></td>
                                 </tr>
                                 </tbody>
                             </table>
@@ -170,7 +177,7 @@
                                         </button>
                                     </div>
                                     <div class="modal-body">
-                                        <form action="#" method="POST">
+                                        <form action="/credential/save" method="POST">
                                             <input type="hidden" name="credentialId" id="credential-id">
                                             <div class="form-group">
                                                 <label for="credential-url" class="col-form-label">URL</label>
@@ -222,11 +229,20 @@
             }
 
             // For opening the credentials modal
-            function showCredentialModal(credentialId, url, username, password) {
-                $('#credential-id').val(credentialId ? credentialId : '');
-                $('#credential-url').val(url ? url : '');
-                $('#credential-username').val(username ? username : '');
-                $('#credential-password').val(password ? password : '');
+            function showCredentialModal(btn) {
+                if (btn) {
+                    // edit mode
+                    document.getElementById('credential-id').value = btn.getAttribute('data-id');
+                    document.getElementById('credential-url').value = btn.getAttribute('data-url');
+                    document.getElementById('credential-username').value = btn.getAttribute('data-username');
+                    document.getElementById('credential-password').value = btn.getAttribute('data-password');
+                } else {
+                    // add mode
+                    document.getElementById('credential-id').value = '';
+                    document.getElementById('credential-url').value = '';
+                    document.getElementById('credential-username').value = '';
+                    document.getElementById('credential-password').value = '';
+                }
                 $('#credentialModal').modal('show');
             }
         </script>
