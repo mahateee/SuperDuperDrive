@@ -22,7 +22,7 @@ public class CustomErrorController implements ErrorController {
             if (statusCode == HttpStatus.NOT_FOUND.value()) {
                 model.addAttribute("error", "Page Not Found");
                 model.addAttribute("message", "Sorry, the page you requested does not exist.");
-                return "error/404";
+                return "error";
             } else if (statusCode == HttpStatus.INTERNAL_SERVER_ERROR.value()) {
                 model.addAttribute("error", "Internal Server Error");
                 model.addAttribute("message", "An unexpected error occurred.");
