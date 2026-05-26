@@ -131,6 +131,27 @@ class CloudStorageApplicationTests {
 	 * Read more about the requirement in the rubric: 
 	 * https://review.udacity.com/#!/rubrics/2724/view 
 	 */
+	private void openTab(WebDriverWait wait, String tabId, String paneId) {
+		WebElement tab = driver.findElement(By.id(tabId));
+		((JavascriptExecutor) driver).executeScript("arguments[0].click();", tab);
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(paneId)));
+	}
+
+	/**
+	 * After a note/credential save, the app redirects to /result?success.
+	 * This helper waits for the Result page and clicks the "here" link to go back to /home.
+	 */
+	private void returnHomeFromResult(WebDriverWait wait) {
+		wait.until(ExpectedConditions.titleContains("Result"));
+		// Verify it was a success (not an error)
+		Assertions.assertTrue(driver.getCurrentUrl().contains("success"),
+				"Expected success result page but got: " + driver.getCurrentUrl());
+		// Click the "here" link — Thymeleaf renders th:href="@{/home}" as href="/home" at runtime
+		driver.findElement(By.cssSelector("a[href='/home']")).click();
+		wait.until(ExpectedConditions.titleContains("Home"));
+	}
+
+	/** PLEASE DO NOT DELETE THIS TEST. **/
 	@Test
 	public void testRedirection() {
 		// Create a test account
@@ -198,9 +219,271 @@ class CloudStorageApplicationTests {
 			System.out.println("Large File upload failed");
 		}
 		Assertions.assertFalse(driver.getPageSource().contains("HTTP Status 403 – Forbidden"));
-
 	}
 
+	// -------------------------------------------------------------------------
+	// AUTH TESTS
+	// -------------------------------------------------------------------------
 
+	@Test
+	public void testHomeNotAccessibleWithoutLogin() {
+		driver.get("http://localhost:" + this.port + "/home");
+		Assertions.assertTrue(driver.getCurrentUrl().contains("/login"));
+	}
 
+	@Test
+	public void testSignUpLoginLogoutFlow() {
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(3));
+
+		doMockSignUp("Auth", "Flow", "authflow", "pass123");
+		Assertions.assertTrue(driver.getCurrentUrl().contains("/login"));
+
+		doLogIn("authflow", "pass123");
+		Assertions.assertTrue(driver.getCurrentUrl().contains("/home"));
+
+		driver.findElement(By.cssSelector("#logoutDiv button[type='submit']")).click();
+		wait.until(ExpectedConditions.urlContains("/login"));
+
+		driver.get("http://localhost:" + this.port + "/home");
+		Assertions.assertTrue(driver.getCurrentUrl().contains("/login"));
+	}
+
+	// -------------------------------------------------------------------------
+	// NOTE TESTS
+	// -------------------------------------------------------------------------
+
+	@Test
+	public void testCreateNoteAndVerify() {
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(3));
+
+		doMockSignUp("Note", "Create", "notecreate", "pass123");
+		doLogIn("notecreate", "pass123");
+
+		openTab(wait, "nav-notes-tab", "nav-notes");
+
+		wait.until(ExpectedConditions.elementToBeClickable(By.id("add-note-btn")));
+		driver.findElement(By.id("add-note-btn")).click();
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("noteModal")));
+
+		driver.findElement(By.id("note-title")).sendKeys("Test Note Title");
+		driver.findElement(By.id("note-description")).sendKeys("Test Note Description");
+		driver.findElement(By.id("noteSubmitButton")).click();
+
+		// Handle result page -> click "here" to go back to home
+		returnHomeFromResult(wait);
+
+		// Open Notes tab and verify the note is in the list
+		openTab(wait, "nav-notes-tab", "nav-notes");
+		wait.until(ExpectedConditions.visibilityOfElementLocated(
+				By.xpath("//div[@id='nav-notes']//th[contains(text(),'Test Note Title')]")));
+
+		String pageSource = driver.getPageSource();
+		Assertions.assertTrue(pageSource.contains("Test Note Title"));
+		Assertions.assertTrue(pageSource.contains("Test Note Description"));
+	}
+
+	@Test
+	public void testEditNoteAndVerify() {
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(3));
+
+		doMockSignUp("Note", "Edit", "noteedit", "pass123");
+		doLogIn("noteedit", "pass123");
+
+		// Create a note first
+		openTab(wait, "nav-notes-tab", "nav-notes");
+		driver.findElement(By.id("add-note-btn")).click();
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("noteModal")));
+		driver.findElement(By.id("note-title")).sendKeys("Original Title");
+		driver.findElement(By.id("note-description")).sendKeys("Original Description");
+		driver.findElement(By.id("noteSubmitButton")).click();
+
+		// Handle result page -> back to home
+		returnHomeFromResult(wait);
+
+		// Open Notes tab and click Edit — button has class "edit-note-btn" (add this to home.html)
+		openTab(wait, "nav-notes-tab", "nav-notes");
+		wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#nav-notes .edit-note-btn")));
+		driver.findElement(By.cssSelector("#nav-notes .edit-note-btn")).click();
+
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("noteModal")));
+
+		WebElement titleField = driver.findElement(By.id("note-title"));
+		titleField.clear();
+		titleField.sendKeys("Updated Title");
+
+		WebElement descField = driver.findElement(By.id("note-description"));
+		descField.clear();
+		descField.sendKeys("Updated Description");
+
+		driver.findElement(By.id("noteSubmitButton")).click();
+
+		// Handle result page -> back to home
+		returnHomeFromResult(wait);
+
+		// Verify updated values in the list
+		openTab(wait, "nav-notes-tab", "nav-notes");
+		wait.until(ExpectedConditions.visibilityOfElementLocated(
+				By.xpath("//div[@id='nav-notes']//th[contains(text(),'Updated Title')]")));
+
+		String pageSource = driver.getPageSource();
+		Assertions.assertTrue(pageSource.contains("Updated Title"));
+		Assertions.assertTrue(pageSource.contains("Updated Description"));
+		Assertions.assertFalse(pageSource.contains("Original Title"));
+	}
+
+	@Test
+	public void testDeleteNoteAndVerify() {
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(3));
+
+		doMockSignUp("Note", "Delete", "notedelete", "pass123");
+		doLogIn("notedelete", "pass123");
+
+		// Create a note first
+		openTab(wait, "nav-notes-tab", "nav-notes");
+		driver.findElement(By.id("add-note-btn")).click();
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("noteModal")));
+		driver.findElement(By.id("note-title")).sendKeys("Note To Delete");
+		driver.findElement(By.id("note-description")).sendKeys("This will be deleted");
+		driver.findElement(By.id("noteSubmitButton")).click();
+
+		// Handle result page -> back to home
+		returnHomeFromResult(wait);
+
+		// Open Notes tab and click Delete — <a class="btn btn-danger delete-note-btn"> (add class to home.html)
+		openTab(wait, "nav-notes-tab", "nav-notes");
+		wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#nav-notes .delete-note-btn")));
+		driver.findElement(By.cssSelector("#nav-notes .delete-note-btn")).click();
+
+		// Delete also redirects to result page -> back to home
+		returnHomeFromResult(wait);
+
+		// Verify note is gone
+		openTab(wait, "nav-notes-tab", "nav-notes");
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-notes")));
+		Assertions.assertFalse(driver.getPageSource().contains("Note To Delete"));
+	}
+
+	// -------------------------------------------------------------------------
+	// CREDENTIAL TESTS
+	// -------------------------------------------------------------------------
+
+	@Test
+	public void testCreateCredentialAndVerify() {
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(3));
+
+		doMockSignUp("Cred", "Create", "credcreate", "pass123");
+		doLogIn("credcreate", "pass123");
+
+		openTab(wait, "nav-credentials-tab", "nav-credentials");
+
+		// "Add a New Credential" button — add id="add-credential-btn" to home.html
+		wait.until(ExpectedConditions.elementToBeClickable(By.id("add-credential-btn")));
+		driver.findElement(By.id("add-credential-btn")).click();
+
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("credentialModal")));
+
+		driver.findElement(By.id("credential-url")).sendKeys("https://testsite.com");
+		driver.findElement(By.id("credential-username")).sendKeys("testuser");
+		driver.findElement(By.id("credential-password")).sendKeys("testpassword");
+
+		// "Save changes" triggers $('#credentialSubmit').click() — add id="credential-save-btn" to home.html
+		driver.findElement(By.id("credential-save-btn")).click();
+
+		// Handle result page -> back to home
+		returnHomeFromResult(wait);
+
+		openTab(wait, "nav-credentials-tab", "nav-credentials");
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("credentialTable")));
+
+		String pageSource = driver.getPageSource();
+		Assertions.assertTrue(pageSource.contains("https://testsite.com"));
+		Assertions.assertTrue(pageSource.contains("testuser"));
+	}
+
+	@Test
+	public void testEditCredentialAndVerify() {
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(3));
+
+		doMockSignUp("Cred", "Edit", "crededit", "pass123");
+		doLogIn("crededit", "pass123");
+
+		// Create a credential first
+		openTab(wait, "nav-credentials-tab", "nav-credentials");
+		driver.findElement(By.id("add-credential-btn")).click();
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("credentialModal")));
+		driver.findElement(By.id("credential-url")).sendKeys("https://original.com");
+		driver.findElement(By.id("credential-username")).sendKeys("originaluser");
+		driver.findElement(By.id("credential-password")).sendKeys("originalpass");
+		driver.findElement(By.id("credential-save-btn")).click();
+
+		// Handle result page -> back to home
+		returnHomeFromResult(wait);
+
+		// Open Credentials tab and click Edit — add class "edit-credential-btn" to home.html
+		openTab(wait, "nav-credentials-tab", "nav-credentials");
+		wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#nav-credentials .edit-credential-btn")));
+		driver.findElement(By.cssSelector("#nav-credentials .edit-credential-btn")).click();
+
+		// Modal opens with decrypted password pre-filled
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("credentialModal")));
+
+		WebElement urlField = driver.findElement(By.id("credential-url"));
+		urlField.clear();
+		urlField.sendKeys("https://updated.com");
+
+		WebElement usernameField = driver.findElement(By.id("credential-username"));
+		usernameField.clear();
+		usernameField.sendKeys("updateduser");
+
+		WebElement passwordField = driver.findElement(By.id("credential-password"));
+		passwordField.clear();
+		passwordField.sendKeys("updatedpass");
+
+		driver.findElement(By.id("credential-save-btn")).click();
+
+		// Handle result page -> back to home
+		returnHomeFromResult(wait);
+
+		// Verify updated values in the list
+		openTab(wait, "nav-credentials-tab", "nav-credentials");
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("credentialTable")));
+
+		String pageSource = driver.getPageSource();
+		Assertions.assertTrue(pageSource.contains("https://updated.com"));
+		Assertions.assertTrue(pageSource.contains("updateduser"));
+		Assertions.assertFalse(pageSource.contains("https://original.com"));
+	}
+
+	@Test
+	public void testDeleteCredentialAndVerify() {
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(3));
+
+		doMockSignUp("Cred", "Delete", "creddelete", "pass123");
+		doLogIn("creddelete", "pass123");
+
+		// Create a credential first
+		openTab(wait, "nav-credentials-tab", "nav-credentials");
+		driver.findElement(By.id("add-credential-btn")).click();
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("credentialModal")));
+		driver.findElement(By.id("credential-url")).sendKeys("https://todelete.com");
+		driver.findElement(By.id("credential-username")).sendKeys("deleteuser");
+		driver.findElement(By.id("credential-password")).sendKeys("deletepass");
+		driver.findElement(By.id("credential-save-btn")).click();
+
+		// Handle result page -> back to home
+		returnHomeFromResult(wait);
+
+		// Open Credentials tab and click Delete — add class "delete-credential-btn" to home.html
+		openTab(wait, "nav-credentials-tab", "nav-credentials");
+		wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#nav-credentials .delete-credential-btn")));
+		driver.findElement(By.cssSelector("#nav-credentials .delete-credential-btn")).click();
+
+		// Delete also goes through result page -> back to home
+		returnHomeFromResult(wait);
+
+		// Verify credential is gone
+		openTab(wait, "nav-credentials-tab", "nav-credentials");
+		wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-credentials")));
+		Assertions.assertFalse(driver.getPageSource().contains("https://todelete.com"));
+	}
 }
